@@ -8,11 +8,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>window.jsPDF = window.jspdf.jsPDF;</script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
@@ -160,8 +158,12 @@
                         <button onclick="terapkanFilter()" class="bg-slate-700 hover:bg-slate-800 text-white py-2 px-4 rounded-lg text-sm font-semibold transition-colors">Terapkan</button>
                         <button onclick="resetFilter()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 py-2 px-4 rounded-lg text-sm font-semibold transition-colors">Reset</button>
                     </div>
-                    <div class="ml-auto w-full sm:w-auto mt-2 sm:mt-0">
-                        <button onclick="downloadPDF()" class="w-full flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white py-2 px-5 rounded-lg text-sm font-bold shadow-lg shadow-rose-500/20 transform hover:-translate-y-0.5 transition-all duration-200">
+                    
+                    <div class="ml-auto w-full sm:w-auto mt-4 sm:mt-0 flex flex-col sm:flex-row gap-2">
+                        <button onclick="resetDataCloud()" class="w-full sm:w-auto flex items-center justify-center gap-2 bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-300 py-2 px-4 rounded-lg text-sm font-bold transition-all duration-200">
+                            <i class="ph ph-trash text-lg"></i> Hapus & Mulai Baru
+                        </button>
+                        <button onclick="downloadPDF()" class="w-full sm:w-auto flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white py-2 px-5 rounded-lg text-sm font-bold shadow-lg shadow-rose-500/20 transform hover:-translate-y-0.5 transition-all duration-200">
                             <i class="ph ph-file-pdf text-lg"></i> Unduh PDF
                         </button>
                     </div>
@@ -199,16 +201,16 @@
     </div>
 
     <script>
+        // MASUKKAN URL WEB APP GOOGLE APPS SCRIPT KAMU DI SINI
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxIt68AXe6tY6jro2qtUNtj9_5doJUfr6rvltzZfZQDBg3h8rVU3eZ5-onekT7nWDBDew/exec";
 
         let allDataCache = []; 
         let currentFilteredData = [];
-        
         let currentPage = 1;
         const rowsPerPage = 10; 
-        
-        let bbmChartInstance = null; // Variabel global untuk menyimpan grafik
+        let bbmChartInstance = null; 
 
+        // Utilities
         const formatRupiah = (angka) => {
             return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
         };
@@ -231,6 +233,7 @@
             return colors[jenis] || 'bg-slate-100 text-slate-700 border-slate-200';
         };
 
+        // Mengambil Data dari Sheet
         async function muatDataDariSheets() {
             const tbody = document.getElementById('tabelBody');
             tbody.innerHTML = '<tr><td colspan="5" class="text-center p-8"><div class="flex flex-col items-center justify-center text-slate-400 gap-2"><i class="ph ph-spinner-gap animate-spin text-3xl"></i><span>Menarik data dari cloud...</span></div></td></tr>';
@@ -238,6 +241,8 @@
             try {
                 const response = await fetch(WEB_APP_URL);
                 allDataCache = await response.json();
+                
+                // Urutkan data berdasarkan tanggal
                 allDataCache.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal));
                 currentFilteredData = [...allDataCache];
                 
@@ -250,13 +255,12 @@
             }
         }
 
-        // --- FUNGSI RENDER DASHBOARD GRAFIK ---
+        // Render Grafik
         function renderDashboard(data) {
             let totalBiaya = 0;
             let totalLiter = 0;
             const bbmData = {};
 
-            // Hitung agregasi data
             data.forEach(item => {
                 const harga = parseFloat(item.harga || 0);
                 const liter = parseFloat(item.liter || 0);
@@ -268,32 +272,23 @@
                 bbmData[jenis] += harga;
             });
 
-            // Update Text Summary
             document.getElementById('dashTotalBiaya').innerText = formatRupiah(totalBiaya);
             document.getElementById('dashTotalLiter').innerText = totalLiter.toFixed(2) + ' L';
 
-            // Siapkan Data untuk Chart.js
             const labels = Object.keys(bbmData);
             const values = Object.values(bbmData);
-            
-            // Tentukan warna grafik sesuai jenis BBM
             const bgColors = labels.map(jenis => {
-                if(jenis === 'Pertalite') return '#22c55e'; // Hijau
-                if(jenis === 'Pertamax') return '#3b82f6'; // Biru
-                if(jenis === 'Biosolar') return '#78716c'; // Abu-abu
-                if(jenis === 'Dexlite') return '#10b981'; // Emerald
-                if(jenis === 'Pertamina Dex') return '#ef4444'; // Merah
-                return '#cbd5e1'; // Default
+                if(jenis === 'Pertalite') return '#22c55e';
+                if(jenis === 'Pertamax') return '#3b82f6';
+                if(jenis === 'Biosolar') return '#78716c';
+                if(jenis === 'Dexlite') return '#10b981';
+                if(jenis === 'Pertamina Dex') return '#ef4444';
+                return '#cbd5e1';
             });
 
             const ctx = document.getElementById('bbmChart').getContext('2d');
-            
-            // Hapus grafik lama jika ada (agar tidak tertumpuk saat filter berubah)
-            if (bbmChartInstance) {
-                bbmChartInstance.destroy();
-            }
+            if (bbmChartInstance) bbmChartInstance.destroy();
 
-            // Buat grafik baru
             bbmChartInstance = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
@@ -306,38 +301,22 @@
                     }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '65%',
+                    responsive: true, maintainAspectRatio: false, cutout: '65%',
                     plugins: {
-                        legend: { 
-                            position: 'right',
-                            labels: {
-                                font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 },
-                                usePointStyle: true,
-                                padding: 20
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return ' ' + context.label + ': ' + formatRupiah(context.raw);
-                                }
-                            }
-                        }
+                        legend: { position: 'right', labels: { font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 }, usePointStyle: true, padding: 20 } },
+                        tooltip: { callbacks: { label: function(context) { return ' ' + context.label + ': ' + formatRupiah(context.raw); } } }
                     }
                 }
             });
         }
 
-        // --- FUNGSI RENDER TABEL & PAGINATION ---
+        // Render Tabel Data & Pagination
         function renderTabel(data) {
             const tbody = document.getElementById('tabelBody');
             const paginationDiv = document.getElementById('paginationControls');
             tbody.innerHTML = '';
             let totalBiaya = 0;
 
-            // Render grafik Dashboard setiap kali tabel dirender
             renderDashboard(data);
 
             if (data.length === 0) {
@@ -347,9 +326,7 @@
                 return;
             }
 
-            data.forEach((item) => {
-                totalBiaya += parseFloat(item.harga || 0);
-            });
+            data.forEach((item) => totalBiaya += parseFloat(item.harga || 0));
             document.getElementById('totalBiayaBawah').innerText = formatRupiah(totalBiaya);
 
             const startIndex = (currentPage - 1) * rowsPerPage;
@@ -361,11 +338,7 @@
                     <tr class="hover:bg-slate-50/80 transition-colors duration-150 border-b border-slate-50 group">
                         <td class="p-4 text-slate-600">${formatDate(item.tanggal)}</td>
                         <td class="p-4 font-bold text-slate-800 tracking-wide">${item.nopol}</td>
-                        <td class="p-4">
-                            <span class="px-3 py-1 text-xs font-bold rounded-full border ${getBBMColor(item.jenisBBM)}">
-                                ${item.jenisBBM}
-                            </span>
-                        </td>
+                        <td class="p-4"><span class="px-3 py-1 text-xs font-bold rounded-full border ${getBBMColor(item.jenisBBM)}">${item.jenisBBM}</span></td>
                         <td class="p-4 text-slate-600 text-right">${parseFloat(item.liter).toFixed(2)} <span class="text-xs text-slate-400">L</span></td>
                         <td class="p-4 font-semibold text-slate-800 text-right">${formatRupiah(item.harga)}</td>
                     </tr>
@@ -396,9 +369,7 @@
 
             let startPage = Math.max(1, currentPage - 2);
             let endPage = Math.min(totalPages, startPage + 4);
-            if (endPage - startPage < 4) {
-                startPage = Math.max(1, endPage - 4);
-            }
+            if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
 
             for (let i = startPage; i <= endPage; i++) {
                 if (i === currentPage) {
@@ -418,12 +389,11 @@
         function changePage(page) {
             const totalPages = Math.ceil(currentFilteredData.length / rowsPerPage);
             if (page < 1 || page > totalPages) return; 
-            
             currentPage = page;
             renderTabel(currentFilteredData);
         }
 
-        // --- FILTER DATA ---
+        // Filter Controls
         function terapkanFilter() {
             const start = document.getElementById('filterStart').value;
             const end = document.getElementById('filterEnd').value;
@@ -434,8 +404,7 @@
                 const itemDate = new Date(item.tanggal);
                 itemDate.setHours(0,0,0,0);
                 
-                let isAfterStart = true;
-                let isBeforeEnd = true;
+                let isAfterStart = true, isBeforeEnd = true;
 
                 if(start) {
                     const startDate = new Date(start);
@@ -463,7 +432,7 @@
             renderTabel(currentFilteredData);
         }
 
-        // --- DOWNLOAD PDF ---
+        // --- FITUR DOWNLOAD PDF ---
         function downloadPDF() {
             if(currentFilteredData.length === 0) {
                 alert("Tidak ada data untuk diunduh!");
@@ -494,14 +463,7 @@
                     const ltr = parseFloat(item.liter || 0);
                     const hrg = parseFloat(item.harga || 0);
                     totalHargaPDF += hrg;
-
-                    tableRows.push([
-                        formatDate(item.tanggal),
-                        item.nopol.toUpperCase(),
-                        item.jenisBBM,
-                        ltr.toFixed(2),
-                        formatRupiah(hrg)
-                    ]);
+                    tableRows.push([formatDate(item.tanggal), item.nopol.toUpperCase(), item.jenisBBM, ltr.toFixed(2), formatRupiah(hrg)]);
                 });
 
                 doc.autoTable({
@@ -517,10 +479,7 @@
                 });
 
                 let finalY = doc.lastAutoTable.finalY + 25; 
-                if (finalY > 250) {
-                    doc.addPage();
-                    finalY = 30;
-                }
+                if (finalY > 250) { doc.addPage(); finalY = 30; }
 
                 doc.setFontSize(10);
                 doc.setFont("helvetica", "normal");
@@ -541,7 +500,45 @@
             }
         }
 
-        // --- SUBMIT DATA BARU ---
+        // --- FITUR RESET / HAPUS DATA CLOUD ---
+        async function resetDataCloud() {
+            // Peringatan 1
+            const konfirmasiPertama = confirm("AWAS! Anda akan MENGHAPUS SEMUA DATA di sistem ini untuk memulai laporan baru.\n\nPastikan Anda SUDAH MENGUNDUH PDF sebagai arsip bulan ini.\n\nLanjutkan?");
+            if (!konfirmasiPertama) return;
+
+            // Peringatan 2
+            const konfirmasiKedua = confirm("Tindakan ini PERMANEN dan data di Google Sheets akan dikosongkan menjadi 0.\n\nApakah Anda benar-benar yakin?");
+            if (!konfirmasiKedua) return;
+
+            try {
+                // UI Loading
+                const tbody = document.getElementById('tabelBody');
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center p-8"><div class="flex flex-col items-center justify-center text-rose-500 gap-2"><i class="ph ph-spinner-gap animate-spin text-3xl"></i><span>Sedang mengosongkan data di cloud...</span></div></td></tr>';
+
+                await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: "reset" })
+                });
+
+                // Toast Notification Sukses
+                const toast = document.createElement('div');
+                toast.className = 'fixed bottom-4 right-4 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 transform translate-y-0 transition-all duration-300 z-50';
+                toast.innerHTML = '<i class="ph-fill ph-trash text-rose-400 text-xl"></i> Papan kerja berhasil dikosongkan!';
+                document.body.appendChild(toast);
+                setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-4'); setTimeout(() => toast.remove(), 300); }, 3000);
+
+                // Muat ulang (data kosong)
+                muatDataDariSheets();
+
+            } catch (error) {
+                console.error(error);
+                alert('Terjadi kesalahan jaringan saat mencoba menghapus data.');
+                muatDataDariSheets(); 
+            }
+        }
+
+        // --- SUBMIT FORM DATA BARU ---
         document.getElementById('formBBM').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -582,7 +579,7 @@
             }
         });
 
-        // Load data saat halaman pertama kali dibuka
+        // Initialize App
         muatDataDariSheets();
     </script>
 </body>
